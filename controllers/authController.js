@@ -373,3 +373,34 @@ exports.deleteAccount = async (req, res) => {
     res.status(500).json({ message: "Error deleting account details", error });
   }
 };
+
+
+exports.updateAcount = async (req, res) => {
+  const { name, address, location,id } = req.body;
+
+  try {
+    // Find the user by their token (from middleware)
+    const userId = id;
+
+    // Ensure that password is not updated here for security
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name,
+        address,
+        location,
+      },
+      { new: true } // Return the updated user
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    } else
+      res.json({
+        message: "Account details updated successfully",
+        user: updatedUser,
+      });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating account details", error });
+  }
+};
