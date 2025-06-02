@@ -10,6 +10,12 @@ const UserSchema = new mongoose.Schema(
     address: { type: String, required: true },
     vendor: { type: Boolean, default: false }, // 🛒 Is user a vendor or normal user?
     login: { type: Boolean, default: false }, // 🔐 Is user currently logged in? (optional)
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Business",
+      },
+    ],
   },
   { timestamps: true }
 );

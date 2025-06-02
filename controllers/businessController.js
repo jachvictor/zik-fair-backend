@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Business = require("../models/business");
+const User = require("../models/user");
 const cloudinary = require("cloudinary").v2;
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -36,7 +37,10 @@ exports.createBusiness = async (req, res) => {
       !coverImage ||
       sampleImages?.length < 1
     ) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "Missing required fields",
+      });
     }
 
     const newBusiness = new Business({
@@ -64,7 +68,7 @@ exports.createBusiness = async (req, res) => {
     });
   } catch (err) {
     console.error("Error saving business:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", message: "Server error" });
   }
 };
 
@@ -78,7 +82,7 @@ exports.getBusiness = async (req, res) => {
       business,
     });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", message: "Server error" });
   }
 };
 
@@ -95,7 +99,7 @@ exports.getBusinesses = async (req, res) => {
       businesses,
     });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", message: "Server error" });
   }
 };
 
@@ -109,7 +113,7 @@ exports.getAllBusinesses = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching businesses:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", message: "Server error" });
   }
 };
 // DELETE /api/businesses/:id
@@ -141,7 +145,7 @@ exports.deleteBusiness = async (req, res) => {
       .json({ message: "Business and images deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: "Server error" });
   }
 };
 
@@ -214,13 +218,17 @@ exports.deleteComment = async (req, res) => {
 
     const business = await Business.findById(businessId);
     if (!business) {
-      return res.status(404).json({ error: "Business not found" });
+      return res
+        .status(404)
+        .json({ error: "Business not found", message: "Business not found" });
     }
 
     // Find the comment
     const comment = business.comments.id(commentId);
     if (!comment) {
-      return res.status(404).json({ error: "Comment not found" });
+      return res
+        .status(404)
+        .json({ error: "Comment not found", message: "Comment not found" });
     }
 
     // Check if the current user is the author
@@ -245,5 +253,90 @@ exports.deleteComment = async (req, res) => {
       message: "Failed to delete comment",
       error: "Failed to delete comment",
     });
+  }
+};
+
+exports.addFavorite = async (req, res) => {
+  // const userId = req.user.id;
+  const { businessId, userId } = req.body;
+
+  try {
+    // Optional: Ensure the business exists
+    const business = await Business.findById(businessId);
+    if (!business) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
+    // Check if already in favorites
+    const user = await User.findById(userId);
+    const alreadyExists = user.favorites.includes(businessId);
+
+    if (alreadyExists) {
+      return res.status(400).json({ message: "Business already in favorites" });
+    }
+
+    // Add to favorites using $addToSet to ensure uniqueness
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { favorites: businessId },
+    });
+
+    res.status(200).json({ message: "Business added to favorites" });
+  } catch (err) {
+    console.error("Add favorite error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ❌ Remove business from favorites
+exports.removeFavorite = async (req, res) => {
+  // const userId = req.user.id;
+  const { businessId, userId } = req.body;
+
+  try {
+    await User.findByIdAndUpdate(userId, {
+      $pull: { favorites: businessId },
+    });
+
+    res.status(200).json({ message: "Business removed from favorites" });
+  } catch (err) {
+    console.error("Remove favorite error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.clearFavorites = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    await User.findByIdAndUpdate(userId, {
+      $set: { favorites: [] },
+    });
+
+    res.status(200).json({ message: "All favorites cleared successfully" });
+  } catch (err) {
+    console.error("Clear favorites error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getFavorites = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .populate("favorites") // Populate to get full business objects
+      .exec();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Fetched favorites successfully",
+      favorites: user.favorites,
+    });
+  } catch (error) {
+    console.error("Error fetching favorites:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

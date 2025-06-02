@@ -6,14 +6,17 @@ const EmailToken = require("../models/emailVerificationToken");
 const User = require("../models/user");
 const nodemailer = require("nodemailer");
 
-const sendEmail = require("../utils/sendEmail"); // You'll create this
+const sendEmail = require("../utils/sendEmail");
 const dayjs = require("dayjs");
 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // your email
+    pass: process.env.EMAIL_PASS, // Gmail App Password (not your normal password)
+  },
+});
 // POST /register
-//
-//
-//
-
 exports.register = async (req, res) => {
   const { name, email, password, location, address } = req.body;
 
@@ -58,9 +61,10 @@ exports.register = async (req, res) => {
         expiresAt,
       });
     }
+    const header = "Email Verification Code";
 
     // Send token via email
-    await sendEmail(email, token);
+    await sendEmail(email, token, header);
 
     res.status(200).json({ message: "Verification token sent to email." });
   } catch (err) {
@@ -168,7 +172,7 @@ exports.logout = async (req, res) => {
       await user.save();
 
       res.status(200).json({
-        message: "Logged out successful",
+        message: "Logged out successfully",
       });
     }
 
@@ -176,7 +180,7 @@ exports.logout = async (req, res) => {
 
     // Generate JWT token
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Logout error:", error);
     return res
       .status(500)
       .json({ message: "Server error. Please try again later." });
@@ -214,9 +218,9 @@ exports.forgotPassword = async (req, res) => {
         resetExpiresAt: expiresAt,
       });
     }
-
+    const header = "Password Verification Code";
     // Send token via email
-    await sendEmail(email, token);
+    await sendEmail(email, token, header);
 
     res
       .status(200)
@@ -295,7 +299,7 @@ exports.registerVendor = async (req, res) => {
 
     let existingToken = await EmailToken.findOne({ email });
     if (existingToken) {
-      existingToken.vendorEmail=vendorEmail
+      existingToken.vendorEmail = vendorEmail;
       existingToken.vendorToken = token;
       existingToken.vendorExpiresAt = vendorExpiresAt;
       await existingToken.save();
@@ -307,8 +311,9 @@ exports.registerVendor = async (req, res) => {
         vendorExpiresAt,
       });
     }
+    const header = "Vendor Verification Code";
 
-    await sendEmail(vendorEmail, token);
+    await sendEmail(vendorEmail, token, header);
 
     res
       .status(200)
@@ -330,9 +335,7 @@ exports.verifyVendor = async (req, res) => {
     });
 
     if (!record) {
-      return res
-        .status(400)
-        .json({ message: "Invalid email." });
+      return res.status(400).json({ message: "Invalid email." });
     }
 
     if (new Date() > record.vendorExpiresAt) {
@@ -370,13 +373,17 @@ exports.deleteAccount = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ message: "Account deleted" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting account details", error });
+    res
+      .status(500)
+      .json({
+        message: "Error deleting account details",
+        error: "Error deleting account details",
+      });
   }
 };
 
-
 exports.updateAcount = async (req, res) => {
-  const { name, address, location,id } = req.body;
+  const { name, address, location, id } = req.body;
 
   try {
     // Find the user by their token (from middleware)
@@ -401,6 +408,45 @@ exports.updateAcount = async (req, res) => {
         user: updatedUser,
       });
   } catch (error) {
-    res.status(500).json({ message: "Error updating account details", error });
+    res.status(500).json({
+      message: "Error updating account details",
+      error: "Error updating account details",
+    });
+  }
+};
+
+exports.contactUs = async (req, res) => {
+  const { name, email, message } = req.body;
+
+  if (!name || !email || !message) {
+    return res.status(400).json({
+      error: "All fields are required.",
+      message: "All fields are required.",
+    });
+  }
+
+  const mailOptions = {
+    from: email,
+    to: process.env.EMAIL_USER, // your email (receiver)
+    subject: `New Contact Message from ${name}`,
+    text: `
+You received a new contact message:
+
+Name: ${name}
+Email: ${email}
+Message:
+${message}
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Message sent successfully!" });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    res.status(500).json({
+      error: "Failed to send message.",
+      message: "Failed to send message.",
+    });
   }
 };
