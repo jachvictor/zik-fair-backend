@@ -11,6 +11,7 @@ const {
   verifyVendor,
   updateAcount,
   contactUs,
+  deleteAccount,
 } = require("../controllers/authController");
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.post("/reset-password", resetPassword);
 router.post("/register-vendor", registerVendor);
 router.post("/verify-vendor", verifyVendor);
 router.post("/contact-us", contactUs);
+router.delete("/delete-account", deleteAccount);
 
 module.exports = router;
