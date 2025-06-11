@@ -119,7 +119,7 @@ exports.getAllBusinesses = async (req, res) => {
 // DELETE /api/businesses/:id
 exports.deleteBusiness = async (req, res) => {
   try {
-    const business = await Business.findById(req.params.id);
+    const business = await Business.findById(req.params.businessId);
     if (!business)
       return res.status(404).json({ message: "Business not found" });
 
